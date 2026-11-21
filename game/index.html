@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Solmara Spot the Difference</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: linear-gradient(160deg, #1d2b53 0%, #2c4a7c 55%, #17324f 100%);
+    color: #fdf6e3;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 10px 16px 12px;
+  }
+  header {
+    width: 100%; max-width: 1220px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 6px 4px 10px;
+  }
+  header h1 { font-size: 26px; letter-spacing: 1px; color: #ffd166; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  header h1 small { display: block; font-size: 12px; letter-spacing: 3px; color: #9fd8ff; text-transform: uppercase; }
+  .hud { display: flex; align-items: center; gap: 14px; font-size: 17px; }
+  .hud .pill {
+    background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.25);
+    border-radius: 999px; padding: 5px 13px; white-space: nowrap;
+  }
+  .hud .pill b { color: #ffd166; }
+  #hearts { color: #ff6b81; letter-spacing: 2px; font-size: 19px; }
+  button {
+    font-family: inherit; font-size: 16px; cursor: pointer;
+    background: #ffd166; color: #20304d; border: none; border-radius: 999px;
+    padding: 8px 18px; font-weight: bold; box-shadow: 0 3px 0 #b98a1d;
+  }
+  button:active { transform: translateY(2px); box-shadow: none; }
+  button:disabled { opacity: .45; cursor: default; }
+  main { display: flex; gap: 18px; }
+  .panel { text-align: center; }
+  .panel .tag {
+    display: inline-block; font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+    background: rgba(0,0,0,.4); border-radius: 6px; padding: 3px 10px; margin-bottom: 6px;
+  }
+  canvas {
+    display: block; width: 560px; height: 440px;
+    border: 4px solid #f4ead5; border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45); background: #87b5d6;
+  }
+  footer { margin-top: 12px; font-size: 14px; color: #cfe3f5; text-align: center; line-height: 1.5; }
+  footer kbd {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
+    border-radius: 4px; padding: 1px 6px; font-family: inherit;
+  }
+  .overlay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(10, 18, 38, .72); z-index: 10;
+  }
+  .overlay.hidden { display: none; }
+  .card {
+    background: #fdf6e3; color: #22304d; border-radius: 16px; padding: 30px 38px;
+    max-width: 560px; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,.5);
+  }
+  .card h2 { font-size: 34px; color: #c94f32; margin-bottom: 6px; }
+  .card h3 { font-size: 15px; letter-spacing: 3px; text-transform: uppercase; color: #4a6fa5; margin-bottom: 12px; }
+  .card p { font-size: 16px; line-height: 1.6; margin-bottom: 12px; }
+  .card .big { font-size: 21px; font-weight: bold; }
+  .card .stats { font-size: 18px; line-height: 1.9; margin: 8px 0 16px; }
+  .card button { font-size: 19px; padding: 11px 30px; margin-top: 6px; }
+  .card .keys { font-size: 14px; color: #5a6b8a; }
+  .card .keys kbd { background: #e8ddc2; border: 1px solid #b7a97e; border-radius: 4px; padding: 1px 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Solmara <small>Spot the Difference</small></h1>
+  <div class="hud">
+    <span class="pill">Level <b id="levelLabel">1 / 3</b></span>
+    <span class="pill">Found <b id="counterLabel">0 / 7</b></span>
+    <span class="pill">Time <b id="timerLabel">0:00</b></span>
+    <span class="pill">Score <b id="scoreLabel">0</b></span>
+    <span id="hearts" title="Lives">&#10084;&#10084;&#10084;</span>
+    <button id="hintBtn" type="button">Hint (H) &middot; <span id="hintCount">3</span> left</button>
+  </div>
+</header>
+
+<main>
+  <div class="panel"><span class="tag">Left picture</span><canvas id="leftCanvas" width="560" height="440"></canvas></div>
+  <div class="panel"><span class="tag">Right picture</span><canvas id="rightCanvas" width="560" height="440"></canvas></div>
+</main>
+
+<footer>
+  Click a difference on either picture, or move the crosshair with the
+  <kbd>&larr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> keys and press <kbd>Enter</kbd>.
+  A wrong click costs 10 seconds and one heart &middot; <kbd>H</kbd> for a hint.
+</footer>
+
+<div class="overlay" id="titleOverlay">
+  <div class="card">
+    <h2>Solmara</h2>
+    <h3>Spot the Difference</h3>
+    <p>Two pictures of the same place sit side by side &mdash; but the right one
+    hides <b>7 small changes</b>. Study the harbour, the night market and the
+    garden, and circle every difference before your hearts run out.</p>
+    <p class="keys">Mouse: click a difference &nbsp;&middot;&nbsp; Keyboard: arrow keys + <kbd>Enter</kbd> &nbsp;&middot;&nbsp; <kbd>H</kbd>: hint</p>
+    <button id="startBtn" type="button">Start the hunt</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="levelOverlay">
+  <div class="card">
+    <h2 id="levelTitle">Level complete!</h2>
+    <p class="stats" id="levelStats"></p>
+    <button id="nextBtn" type="button">Next level</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="gameOverOverlay">
+  <div class="card">
+    <h2>Out of hearts</h2>
+    <p>The differences slipped away this time. Take another look &mdash; they are still hiding in the same spots.</p>
+    <button id="retryBtn" type="button">Try this level again</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="completeOverlay">
+  <div class="card">
+    <h2>Sharp eyes!</h2>
+    <p class="big">You found all 21 differences in Solmara.</p>
+    <p class="stats" id="finalStats"></p>
+    <button id="againBtn" type="button">Play again</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ */
+/* Small deterministic random helper (mulberry32)                     */
+/* ------------------------------------------------------------------ */
+function makeRng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Canvas helpers                                                     */
+/* ------------------------------------------------------------------ */
+const PANEL_W = 560, PANEL_H = 440;
+const leftCtx = document.getElementById('leftCanvas').getContext('2d');
+const rightCtx = document.getElementById('rightCanvas').getContext('2d');
+
+function circle(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+function ellipse(ctx, x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); }
+function rect(ctx, x, y, w, h) { ctx.fillRect(x, y, w, h); }
+function poly(ctx, points) {
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+  ctx.closePath(); ctx.fill();
+}
+function skyGradient(ctx, stops) {
+  const g = ctx.createLinearGradient(0, 0, 0, 300);
+  for (const [at, color] of stops) g.addColorStop(at, color);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, PANEL_W, 300);
+}
+function drawCloud(ctx, x, y, s, color) {
+  ctx.fillStyle = color;
+  circle(ctx, x, y, 18 * s); circle(ctx, x + 20 * s, y - 6 * s, 22 * s);
+  circle(ctx, x + 44 * s, y, 18 * s); circle(ctx, x + 22 * s, y + 8 * s, 20 * s);
+}
+function drawBird(ctx, x, y, s, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 2.4 * s; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - 9 * s, y); ctx.quadraticCurveTo(x - 4 * s, y - 7 * s, x, y);
+  ctx.quadraticCurveTo(x + 4 * s, y - 7 * s, x + 9 * s, y);
+  ctx.stroke();
+}
+function drawStar(ctx, x, y, r, color) {
+  ctx.fillStyle = color; ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const ang = -Math.PI / 2 + i * Math.PI / 5;
+    const rr = i % 2 === 0 ? r : r * 0.45;
+    ctx[i === 0 ? 'moveTo' : 'lineTo'](x + Math.cos(ang) * rr, y + Math.sin(ang) * rr);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+/* ------------------------------------------------------------------ */
+/* Level layouts: scenery positions are rolled once per level, so the  */
+/* two panels always agree except for the seven scripted differences.  */
+/* ------------------------------------------------------------------ */
+function buildLayout(levelIndex) {
+  const rng = makeRng(20261121 + levelIndex * 977);
+  const clouds = [];
+  for (let i = 0; i < 3; i++) clouds.push({ x: 40 + rng() * 440, y: 28 + rng() * 55, s: 0.7 + rng() * 0.5 });
+  const birds = [];
+  for (let i = 0; i < 4; i++) birds.push({ x: 150 + rng() * 260, y: 55 + rng() * 90, s: 0.8 + rng() * 0.4 });
+  const stars = [];
+  for (let i = 0; i < 26; i++) stars.push({ x: rng() * PANEL_W, y: rng() * 150, r: 0.8 + rng() * 1.4 });
+  const flowers = [];
+  for (let i = 0; i < 9; i++) flowers.push({ x: 30 + rng() * 500, y: 395 + rng() * 32 });
+  return { clouds, birds, stars, flowers };
+}
+const LAYOUTS = [buildLayout(0), buildLayout(1), buildLayout(2)];
+
+/* ------------------------------------------------------------------ */
+/* Level 1 — Solmara harbour at sunset                                */
+/* ------------------------------------------------------------------ */
+function drawHarbor(ctx, variant, L) {
+  skyGradient(ctx, [[0, '#ffb347'], [0.55, '#ff7e5f'], [1, '#c86dd7']]);
+  if (variant === 0) { ctx.fillStyle = '#fff3b0'; circle(ctx, 470, 70, 34); ctx.fillStyle = '#ffe27a'; circle(ctx, 470, 70, 26); }
+  for (let i = 0; i < L.clouds.length; i++) {
+    const c = L.clouds[i];
+    if (variant === 1 && i === 1) continue;               // difference 6: a cloud is gone
+    drawCloud(ctx, c.x, c.y, c.s, 'rgba(255, 235, 220, 0.9)');
+  }
+  for (let i = 0; i < L.birds.length; i++) drawBird(ctx, L.birds[i].x, L.birds[i].y, L.birds[i].s, '#5b2a4a');
+  if (variant === 1) drawBird(ctx, 320, 80, 1.1, '#5b2a4a'); // difference 3: one extra bird
+
+  // Sea
+  const sea = ctx.createLinearGradient(0, 260, 0, PANEL_H);
+  sea.addColorStop(0, '#e8705a'); sea.addColorStop(0.35, '#7d5ba6'); sea.addColorStop(1, '#2c4a7c');
+  ctx.fillStyle = sea; ctx.fillRect(0, 260, PANEL_W, PANEL_H - 260);
+  ctx.strokeStyle = 'rgba(255, 220, 180, 0.55)'; ctx.lineWidth = 2;
+  for (let y = 285; y < 430; y += 26) {
+    ctx.beginPath();
+    for (let x = 0; x <= PANEL_W; x += 28) ctx.lineTo(x, y + Math.sin(x / 46 + y) * 3);
+    ctx.stroke();
+  }
+
+  // Lighthouse (left side)
+  ctx.fillStyle = '#f4ead5'; poly(ctx, [[62, 300], [72, 96], [108, 96], [118, 300]]);
+  ctx.fillStyle = '#c94f32'; poly(ctx, [[66, 252], [114, 252], [112, 214], [68, 214]]);
+  ctx.fillStyle = '#c94f32'; poly(ctx, [[70, 150], [110, 150], [108, 116], [72, 116]]);
+  ctx.fillStyle = '#22304d'; rect(ctx, 66, 78, 48, 20);
+  ctx.fillStyle = '#ffd166'; rect(ctx, 72, 82, 36, 12);
+  ctx.fillStyle = '#22304d'; poly(ctx, [[62, 78], [118, 78], [90, 58]]);
+  ctx.strokeStyle = '#22304d'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(90, 58); ctx.lineTo(90, 34); ctx.stroke();
+  if (variant === 0) { ctx.fillStyle = '#c94f32'; poly(ctx, [[90, 34], [118, 41], [90, 48]]); } // difference 7: the flag
+  if (variant === 0) {                                                        // difference 2: the light beam
+    ctx.fillStyle = 'rgba(255, 241, 166, 0.45)';
+    poly(ctx, [[108, 88], [230, 46], [230, 128]]);
+  }
+
+  // Wooden pier
+  ctx.fillStyle = '#7a5230'; rect(ctx, 0, 330, 150, 14);
+  ctx.fillStyle = '#5d3c22';
+  for (let x = 12; x < 150; x += 26) rect(ctx, x, 344, 8, 26);
+
+  // Boats on the water
+  drawBoat(ctx, 300, 330, '#c94f32', variant);   // difference 4: sail colour
+  drawBoat(ctx, 430, 372, '#2e7d6b', variant);
+
+  // Buoy
+  if (variant === 0) {                            // difference 5: the buoy
+    ctx.fillStyle = '#ff5a3c'; ellipse(ctx, 480, 388, 13, 9);
+    ctx.fillStyle = '#fdf6e3'; rect(ctx, 472, 380, 16, 5);
+    ctx.fillStyle = '#ff5a3c'; circle(ctx, 480, 374, 4);
+  }
+}
+
+function drawBoat(ctx, x, y, sailColor, variant) {
+  ctx.fillStyle = '#5d3c22'; poly(ctx, [[x - 42, y], [x + 42, y], [x + 28, y + 16], [x - 28, y + 16]]);
+  ctx.strokeStyle = '#3a2413'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x, y - 52); ctx.lineTo(x, y); ctx.stroke();
+  const sail = (x === 300 && variant === 1) ? '#2e7d8f' : sailColor;
+  ctx.fillStyle = sail; poly(ctx, [[x, y - 50], [x, y - 4], [x + 34, y - 4]]);
+  ctx.fillStyle = '#fdf6e3'; poly(ctx, [[x - 2, y - 44], [x - 2, y - 4], [x - 28, y - 4]]);
+}
+
+/* ------------------------------------------------------------------ */
+/* Level 2 — Night market                                             */
+/* ------------------------------------------------------------------ */
+function drawMarket(ctx, variant, L) {
+  skyGradient(ctx, [[0, '#0b1035'], [0.7, '#1b2a6b'], [1, '#2c4a7c']]);
+  for (const s of L.stars) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; circle(ctx, s.x, s.y, s.r); }
+  if (variant === 0) { ctx.fillStyle = '#ffe9a8'; circle(ctx, 480, 60, 26); ctx.fillStyle = '#fff6cf'; circle(ctx, 480, 60, 19); } // difference 1: the moon
+
+  // String lights across the top
+  ctx.strokeStyle = '#3a2b1c'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, 84); ctx.quadraticCurveTo(280, 128, 560, 84); ctx.stroke();
+  const bulbColors = ['#ffd166', '#ff6b81', '#7ee0a3', '#9fd8ff'];
+  for (let i = 0; i < 11; i++) {
+    const bx = 28 + i * 50;
+    const by = 84 + Math.sin((bx / 560) * Math.PI) * 34 + 8;
+    if (variant === 1 && i === 6) continue;              // difference 4: one bulb is out
+    ctx.fillStyle = bulbColors[i % 4]; circle(ctx, bx, by, 7);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; circle(ctx, bx - 2, by - 2, 2.5);
+  }
+
+  // Ground
+  ctx.fillStyle = '#4a3423'; rect(ctx, 0, 380, PANEL_W, 60);
+  ctx.fillStyle = '#5d422c';
+  for (let x = 0; x < PANEL_W; x += 46) rect(ctx, x, 408, 30, 4);
+
+  drawStall(ctx, 40, 250, '#c94f32', '#fdf6e3', variant, 0);
+  drawStall(ctx, 210, 250, '#2e7d6b', '#ffd166', variant, 1);
+  drawStall(ctx, 380, 250, '#4a6fa5', '#fdf6e3', variant, 2);
+
+  // Stall signs: star on the left stall, a ring on the right picture
+  if (variant === 0) drawStar(ctx, 110, 300, 13, '#ffd166');
+  else { ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(110, 300, 11, 0, Math.PI * 2); ctx.stroke(); } // difference 3
+
+  // Paper lanterns under the middle stall's awning
+  const lanternColor = variant === 1 ? '#ffd166' : '#e63946';   // difference 2: lantern colour
+  ctx.fillStyle = lanternColor; ellipse(ctx, 280, 292, 15, 19);
+  ctx.fillStyle = '#ffd166'; ellipse(ctx, 318, 292, 15, 19);
+  ctx.fillStyle = '#e63946'; ellipse(ctx, 242, 292, 12, 15);
+
+  // Fruit basket in front of the middle stall
+  if (variant === 0) {                            // difference 7: the basket
+    ctx.fillStyle = '#8a5a2b'; ellipse(ctx, 255, 392, 26, 10);
+    ctx.fillStyle = '#ff7b2f'; circle(ctx, 242, 384, 7); circle(ctx, 256, 380, 7); circle(ctx, 270, 384, 7);
+    ctx.fillStyle = '#7ee0a3'; circle(ctx, 249, 376, 4); circle(ctx, 263, 376, 4);
+  }
+
+  // A cat asleep on a crate by the right stall
+  if (variant === 0) {                            // difference 5: the cat
+    ctx.fillStyle = '#8a6d4b'; rect(ctx, 492, 396, 44, 26);
+    ctx.fillStyle = '#6b543a'; rect(ctx, 492, 408, 44, 3);
+    ctx.fillStyle = '#3a2b1c'; ellipse(ctx, 514, 392, 16, 9);
+    ctx.fillStyle = '#3a2b1c'; poly(ctx, [[502, 386], [506, 376], [510, 386]]);
+    ctx.fillStyle = '#3a2b1c'; poly(ctx, [[520, 386], [524, 376], [528, 386]]);
+    ctx.fillStyle = '#3a2b1c'; ellipse(ctx, 530, 394, 9, 5);
+  }
+}
+
+function drawStall(ctx, x, y, awningA, awningB, variant, stallIndex) {
+  // Stall counter and posts
+  ctx.fillStyle = '#6b4423'; rect(ctx, x, y + 96, 140, 84);
+  ctx.fillStyle = '#8a5a2b'; rect(ctx, x, y + 96, 140, 10);
+  ctx.fillStyle = '#4a2f18'; rect(ctx, x + 4, y + 10, 8, 92); rect(ctx, x + 128, y + 10, 8, 92);
+  // Striped awning; the right stall's stripes change colour on the right picture
+  const stripeA = (stallIndex === 2 && variant === 1) ? '#2e7d6b' : awningA;
+  for (let i = 0; i < 7; i++) {
+    ctx.fillStyle = i % 2 === 0 ? stripeA : awningB;
+    rect(ctx, x - 6 + i * 22, y, 22, 34);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; rect(ctx, x - 6, y + 28, 154, 6);
+  // Goods on the counter
+  ctx.fillStyle = '#ffd166'; circle(ctx, x + 28, y + 88, 7); circle(ctx, x + 46, y + 88, 7);
+  ctx.fillStyle = '#ff6b81'; circle(ctx, x + 96, y + 88, 8); circle(ctx, x + 114, y + 88, 8);
+}
+
+/* ------------------------------------------------------------------ */
+/* Level 3 — Garden with a fountain                                   */
+/* ------------------------------------------------------------------ */
+function drawGarden(ctx, variant, L) {
+  skyGradient(ctx, [[0, '#aee3ff'], [0.6, '#cfeefb'], [1, '#eafaf0']]);
+  ctx.fillStyle = '#fff3b0'; circle(ctx, 84, 58, 30); ctx.fillStyle = '#ffe27a'; circle(ctx, 84, 58, 22);
+  for (let i = 0; i < L.clouds.length; i++) {
+    const c = L.clouds[i];
+    if (variant === 1 && i === 2) continue;               // difference 6: a cloud is gone
+    drawCloud(ctx, c.x, c.y, c.s, 'rgba(255,255,255,0.95)');
+  }
+  if (variant === 0) drawButterfly(ctx, 400, 150);       // difference 1: the butterfly
+
+  // Grass
+  ctx.fillStyle = '#69b455'; rect(ctx, 0, 280, PANEL_W, 160);
+  ctx.fillStyle = '#5aa348';
+  for (let x = 0; x < PANEL_W; x += 34) poly(ctx, [[x, 300], [x + 8, 286], [x + 16, 300]]);
+  ctx.fillStyle = '#7cc96a'; ellipse(ctx, 280, 300, 200, 26);
+
+  // Trees
+  drawTree(ctx, 92, 240, '#3e7d32');
+  drawTree(ctx, 470, 232, '#4a8f3c');
+  if (variant === 1) {                                    // difference 5: a nest appears
+    ctx.fillStyle = '#8a5a2b'; ellipse(ctx, 470, 196, 18, 8);
+    ctx.fillStyle = '#fdf6e3'; circle(ctx, 464, 190, 5); circle(ctx, 474, 190, 5);
+  }
+
+  // Garden path of pale stones
+  ctx.fillStyle = '#e8ddc2';
+  const stones = [[250, 414], [280, 424], [310, 414], [265, 434], [296, 434]];
+  for (let i = 0; i < stones.length; i++) {
+    if (variant === 1 && i === 1) continue;              // difference 7: a stepping stone is gone
+    ellipse(ctx, stones[i][0], stones[i][1], 16, 7);
+  }
+
+  // Wooden bench with a cushion
+  ctx.fillStyle = '#7a5230'; rect(ctx, 128, 348, 84, 10); rect(ctx, 128, 330, 84, 8);
+  ctx.fillStyle = '#5d3c22'; rect(ctx, 134, 358, 8, 30); rect(ctx, 198, 358, 8, 30);
+  ctx.fillStyle = variant === 1 ? '#4a6fa5' : '#c94f32'; // difference 4: cushion colour
+  rect(ctx, 136, 340, 68, 9);
+
+  // Fountain
+  ctx.fillStyle = '#9db8c8'; ellipse(ctx, 280, 330, 74, 22);
+  ctx.fillStyle = '#7fb3d5'; ellipse(ctx, 280, 326, 62, 16);
+  ctx.fillStyle = '#b8cdd9'; rect(ctx, 272, 268, 16, 58);
+  ctx.fillStyle = '#d7e6ee'; ellipse(ctx, 280, 268, 26, 8);
+  ctx.strokeStyle = '#a8d4f0'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(280, 268); ctx.quadraticCurveTo(258, 236, 246, 214); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(280, 268); ctx.quadraticCurveTo(302, 236, 314, 214); ctx.stroke();
+  if (variant === 0) {                                    // difference 2: the middle jet
+    ctx.beginPath(); ctx.moveTo(280, 268); ctx.lineTo(280, 206); ctx.stroke();
+    ctx.fillStyle = '#cfe9fb'; circle(ctx, 280, 200, 7);
+  }
+  ctx.fillStyle = '#cfe9fb'; circle(ctx, 246, 208, 6); circle(ctx, 314, 208, 6);
+
+  // Flower bed along the bottom
+  const petalColors = ['#e63946', '#ff8fab', '#ffd166', '#9b5de5', '#f15bb5'];
+  for (let i = 0; i < L.flowers.length; i++) {
+    const f = L.flowers[i];
+    const color = (variant === 1 && i === 3) ? '#7b2fbe' : petalColors[i % petalColors.length]; // difference 3: one flower's colour
+    ctx.strokeStyle = '#3e7d32'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x, f.y - 12); ctx.stroke();
+    ctx.fillStyle = color;
+    for (let p = 0; p < 5; p++) {
+      const ang = (p / 5) * Math.PI * 2;
+      circle(ctx, f.x + Math.cos(ang) * 6, f.y - 14 + Math.sin(ang) * 6, 4.5);
+    }
+    ctx.fillStyle = '#ffd166'; circle(ctx, f.x, f.y - 14, 3.5);
+  }
+}
+
+function drawTree(ctx, x, y, color) {
+  ctx.fillStyle = '#6b4423'; rect(ctx, x - 7, y, 14, 62);
+  ctx.fillStyle = color;
+  circle(ctx, x, y - 14, 42); circle(ctx, x - 32, y + 6, 28); circle(ctx, x + 32, y + 6, 28);
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  circle(ctx, x - 14, y - 26, 18); circle(ctx, x + 18, y - 30, 13);
+}
+
+function drawButterfly(ctx, x, y) {
+  ctx.strokeStyle = '#22304d'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, y - 8); ctx.lineTo(x, y + 10); ctx.stroke();
+  ctx.fillStyle = '#f15bb5';
+  ellipse(ctx, x - 9, y - 4, 9, 6); ellipse(ctx, x + 9, y - 4, 9, 6);
+  ellipse(ctx, x - 7, y + 7, 6, 4); ellipse(ctx, x + 7, y + 7, 6, 4);
+  ctx.fillStyle = '#ffd166'; circle(ctx, x - 9, y - 4, 2.5); circle(ctx, x + 9, y - 4, 2.5);
+}
+
+/* ------------------------------------------------------------------ */
+/* The seven differences of each level, in panel coordinates.          */
+/* ------------------------------------------------------------------ */
+const LEVELS = [
+  {
+    name: 'Harbour at Sunset', seed: 0,
+    draw: drawHarbor,
+    diffs: [
+      { x: 470, y: 70, r: 40, label: 'the sun' },
+      { x: 128, y: 96, r: 34, label: 'the lighthouse beam' },
+      { x: 320, y: 80, r: 24, label: 'an extra bird' },
+      { x: 318, y: 300, r: 32, label: 'the sail colour' },
+      { x: 480, y: 385, r: 22, label: 'the buoy' },
+      { x: 170, y: 55, r: 34, label: 'a cloud' },
+      { x: 100, y: 42, r: 20, label: 'the lighthouse flag' },
+    ],
+  },
+  {
+    name: 'Night Market', seed: 1,
+    draw: drawMarket,
+    diffs: [
+      { x: 480, y: 60, r: 34, label: 'the moon' },
+      { x: 280, y: 292, r: 24, label: 'a lantern colour' },
+      { x: 110, y: 300, r: 22, label: 'the stall sign' },
+      { x: 328, y: 108, r: 18, label: 'a string-light bulb' },
+      { x: 514, y: 394, r: 26, label: 'the sleeping cat' },
+      { x: 450, y: 268, r: 24, label: 'an awning stripe' },
+      { x: 255, y: 386, r: 24, label: 'the fruit basket' },
+    ],
+  },
+  {
+    name: 'Garden Fountain', seed: 2,
+    draw: drawGarden,
+    diffs: [
+      { x: 400, y: 150, r: 24, label: 'the butterfly' },
+      { x: 280, y: 214, r: 28, label: 'the middle fountain jet' },
+      { x: 200, y: 402, r: 20, label: 'a flower colour' },
+      { x: 170, y: 344, r: 26, label: 'the bench cushion' },
+      { x: 470, y: 192, r: 24, label: 'the bird nest' },
+      { x: 350, y: 55, r: 32, label: 'a cloud' },
+      { x: 280, y: 424, r: 20, label: 'a stepping stone' },
+    ],
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* Game state                                                          */
+/* ------------------------------------------------------------------ */
+const state = {
+  screen: 'title',            // title | play | levelComplete | gameOver | complete
+  levelIndex: 0,
+  found: new Set(),           // indices into the current level's diffs
+  hearts: 3,
+  hintsLeft: 3,
+  levelSeconds: 0,
+  totalSeconds: 0,
+  score: 0,
+  hintPulse: null,            // { index, until } while a hint is showing
+  cursor: { panel: 0, x: 280, y: 220, visible: false },
+  shot: null,
+};
+
+const $ = (id) => document.getElementById(id);
+const levelLabel = $('levelLabel'), counterLabel = $('counterLabel'),
+      timerLabel = $('timerLabel'), scoreLabel = $('scoreLabel'),
+      heartsEl = $('hearts'), hintCountEl = $('hintCount'), hintBtn = $('hintBtn');
+
+function fmtTime(total) {
+  const m = Math.floor(total / 60), s = total % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+function updateHud() {
+  const level = LEVELS[state.levelIndex];
+  levelLabel.textContent = (state.levelIndex + 1) + ' / ' + LEVELS.length + ' · ' + level.name;
+  counterLabel.textContent = state.found.size + ' / ' + level.diffs.length;
+  timerLabel.textContent = fmtTime(state.levelSeconds);
+  scoreLabel.textContent = state.score;
+  heartsEl.innerHTML = '&#10084;'.repeat(state.hearts) + '&#9825;'.repeat(3 - state.hearts);
+  hintCountEl.textContent = state.hintsLeft;
+  hintBtn.disabled = state.hintsLeft <= 0 || state.screen !== 'play';
+}
+
+/* ------------------------------------------------------------------ */
+/* Sound: tiny WebAudio chimes, no audio files.                        */
+/* ------------------------------------------------------------------ */
+let audioCtx = null;
+function playTone(freq, at, dur, type) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, audioCtx.currentTime + at);
+    gain.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + at + dur);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + at); osc.stop(audioCtx.currentTime + at + dur + 0.05);
+  } catch (e) { /* sound is a garnish; a silent browser still plays */ }
+}
+function chimeFound() { playTone(660, 0, 0.18); playTone(880, 0.09, 0.28); playTone(1320, 0.18, 0.3); }
+function chimeWrong() { playTone(180, 0, 0.25, 'sawtooth'); }
+function chimeWin() { [523, 659, 784, 1047].forEach((f, i) => playTone(f, i * 0.12, 0.35)); }
+
+/* ------------------------------------------------------------------ */
+/* Rendering                                                           */
+/* ------------------------------------------------------------------ */
+function drawMarker(ctx, diff, pulse) {
+  const now = performance.now();
+  let r = diff.r + 4;
+  if (pulse) r += Math.sin(now / 130) * 5;
+  ctx.strokeStyle = pulse ? '#ffd166' : '#e63946';
+  ctx.lineWidth = pulse ? 5 : 4;
+  ctx.beginPath(); ctx.arc(diff.x, diff.y, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(diff.x, diff.y, r + 3, 0, Math.PI * 2); ctx.stroke();
+}
+
+function renderPanel(ctx, variant) {
+  const level = LEVELS[state.levelIndex];
+  const L = LAYOUTS[state.levelIndex];
+  level.draw(ctx, variant, L);
+  for (const idx of state.found) drawMarker(ctx, level.diffs[idx], false);
+  if (state.hintPulse && state.hintPulse.until > performance.now()) {
+    drawMarker(ctx, level.diffs[state.hintPulse.index], true);
+  }
+  if (state.cursor.visible && state.screen === 'play') {
+    const onThisPanel = (variant === state.cursor.panel);
+    if (onThisPanel) {
+      const c = state.cursor;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(c.x, c.y, 14, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#e63946';
+      ctx.beginPath();
+      ctx.moveTo(c.x - 20, c.y); ctx.lineTo(c.x - 8, c.y);
+      ctx.moveTo(c.x + 8, c.y); ctx.lineTo(c.x + 20, c.y);
+      ctx.moveTo(c.x, c.y - 20); ctx.lineTo(c.x, c.y - 8);
+      ctx.moveTo(c.x, c.y + 8); ctx.lineTo(c.x, c.y + 20);
+      ctx.stroke();
+    }
+  }
+}
+
+function render() {
+  renderPanel(leftCtx, 0);
+  renderPanel(rightCtx, 1);
+  updateHud();
+  requestAnimationFrame(render);
+}
+
+/* ------------------------------------------------------------------ */
+/* Clicks, keyboard, hints                                             */
+/* ------------------------------------------------------------------ */
+function canvasPoint(canvas, event) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * (PANEL_W / rect.width),
+    y: (event.clientY - rect.top) * (PANEL_H / rect.height),
+  };
+}
+
+function tryPoint(panel, x, y) {
+  if (state.screen !== 'play') return;
+  const level = LEVELS[state.levelIndex];
+  for (let i = 0; i < level.diffs.length; i++) {
+    if (state.found.has(i)) continue;
+    const d = level.diffs[i];
+    const dist = Math.hypot(x - d.x, y - d.y);
+    if (dist <= d.r + 10) {
+      state.found.add(i);
+      state.score += 100;
+      chimeFound();
+      if (state.found.size === level.diffs.length) finishLevel();
+      return;
+    }
+  }
+  // A miss: ten seconds and a heart.
+  state.levelSeconds += 10;
+  state.hearts -= 1;
+  chimeWrong();
+  if (state.hearts <= 0) {
+    state.screen = 'gameOver';
+    $('gameOverOverlay').classList.remove('hidden');
+  }
+}
+
+function useHint() {
+  if (state.screen !== 'play' || state.hintsLeft <= 0) return;
+  const level = LEVELS[state.levelIndex];
+  const remaining = level.diffs.map((d, i) => i).filter((i) => !state.found.has(i));
+  if (!remaining.length) return;
+  state.hintsLeft -= 1;
+  state.hintPulse = { index: remaining[0], until: performance.now() + 1800 };
+  playTone(990, 0, 0.15);
+}
+
+function finishLevel() {
+  state.totalSeconds += state.levelSeconds;
+  const timeBonus = Math.max(0, 300 - state.levelSeconds * 2);
+  state.score += timeBonus;
+  chimeWin();
+  if (state.levelIndex === LEVELS.length - 1) {
+    state.screen = 'complete';
+    $('finalStats').innerHTML =
+      'Total time: <b>' + fmtTime(state.totalSeconds) + '</b><br>Final score: <b>' + state.score + '</b>';
+    $('completeOverlay').classList.remove('hidden');
+  } else {
+    state.screen = 'levelComplete';
+    $('levelTitle').textContent = LEVELS[state.levelIndex].name + ' complete!';
+    $('levelStats').innerHTML =
+      'You found all 7 differences in <b>' + fmtTime(state.levelSeconds) + '</b><br>' +
+      'Level score: <b>' + state.score + '</b> &nbsp;·&nbsp; Hearts left: <b>' + state.hearts + '</b>';
+    $('levelOverlay').classList.remove('hidden');
+  }
+}
+
+function startLevel(index) {
+  state.levelIndex = index;
+  state.found = new Set();
+  state.hearts = 3;
+  state.hintsLeft = 3;
+  state.levelSeconds = 0;
+  state.hintPulse = null;
+  state.cursor = { panel: 0, x: 280, y: 220, visible: false };
+  state.screen = 'play';
+  $('titleOverlay').classList.add('hidden');
+  $('levelOverlay').classList.add('hidden');
+  $('gameOverOverlay').classList.add('hidden');
+  $('completeOverlay').classList.add('hidden');
+}
+
+document.getElementById('leftCanvas').addEventListener('click', (e) => {
+  const p = canvasPoint(e.currentTarget, e); tryPoint(0, p.x, p.y);
+});
+document.getElementById('rightCanvas').addEventListener('click', (e) => {
+  const p = canvasPoint(e.currentTarget, e); tryPoint(1, p.x, p.y);
+});
+hintBtn.addEventListener('click', useHint);
+$('startBtn').addEventListener('click', () => { state.score = 0; state.totalSeconds = 0; startLevel(0); });
+$('nextBtn').addEventListener('click', () => {
+  if (state.levelIndex >= LEVELS.length - 1) {
+    // The final level has no next level: show the game-complete screen.
+    $('levelOverlay').classList.add('hidden');
+    state.screen = 'complete';
+    $('finalStats').innerHTML =
+      'Total time: <b>' + fmtTime(state.totalSeconds) + '</b><br>Final score: <b>' + state.score + '</b>';
+    $('completeOverlay').classList.remove('hidden');
+    return;
+  }
+  startLevel(state.levelIndex + 1);
+});
+$('retryBtn').addEventListener('click', () => startLevel(state.levelIndex));
+$('againBtn').addEventListener('click', () => { state.score = 0; state.totalSeconds = 0; startLevel(0); });
+
+document.addEventListener('keydown', (e) => {
+  if (state.screen !== 'play') return;
+  const c = state.cursor;
+  const step = e.shiftKey ? 40 : 14;
+  if (e.key === 'ArrowLeft') { c.x -= step; if (c.x < 0) { c.panel = 1 - c.panel; c.x = PANEL_W + c.x; } }
+  else if (e.key === 'ArrowRight') { c.x += step; if (c.x > PANEL_W) { c.panel = 1 - c.panel; c.x -= PANEL_W; } }
+  else if (e.key === 'ArrowUp') c.y = Math.max(0, c.y - step);
+  else if (e.key === 'ArrowDown') c.y = Math.min(PANEL_H, c.y + step);
+  else if (e.key === 'Enter' || e.key === ' ') { tryPoint(c.panel, c.x, c.y); e.preventDefault(); return; }
+  else if (e.key === 'h' || e.key === 'H') { useHint(); return; }
+  else return;
+  c.visible = true;
+  e.preventDefault();
+});
+
+/* The clock only runs while a level is being played. */
+setInterval(() => {
+  if (state.screen === 'play' && !state.shot) state.levelSeconds += 1;
+}, 1000);
+
+/* ------------------------------------------------------------------ */
+/* Deterministic staged frames for screenshots (?shot=...).            */
+/* ------------------------------------------------------------------ */
+function applyShot(shot) {
+  state.shot = shot;
+  if (shot === 'start') {
+    state.screen = 'title';
+  } else if (shot === 'play') {
+    state.levelIndex = 0; state.screen = 'play';
+    state.found = new Set([0, 2, 4]); state.levelSeconds = 47; state.score = 300;
+    $('titleOverlay').classList.add('hidden');
+  } else if (shot === 'level2') {
+    state.levelIndex = 1; state.screen = 'play';
+    state.found = new Set([0, 3]); state.levelSeconds = 83; state.score = 640;
+    $('titleOverlay').classList.add('hidden');
+  } else if (shot === 'end') {
+    state.levelIndex = 2; state.screen = 'levelComplete';
+    state.found = new Set([0, 1, 2, 3, 4, 5, 6]);
+    state.levelSeconds = 132; state.totalSeconds = 301; state.score = 2310;
+    $('titleOverlay').classList.add('hidden');
+    $('levelTitle').textContent = LEVELS[2].name + ' complete!';
+    $('levelStats').innerHTML =
+      'You found all 7 differences in <b>' + fmtTime(state.levelSeconds) + '</b><br>' +
+      'Level score: <b>' + state.score + '</b> &nbsp;·&nbsp; Hearts left: <b>' + state.hearts + '</b>';
+    $('nextBtn').textContent = 'See final results';
+    $('levelOverlay').classList.remove('hidden');
+  }
+}
+
+const params = new URLSearchParams(location.search);
+if (params.has('shot')) applyShot(params.get('shot'));
+
+render();
+</script>
+</body>
+</html>
